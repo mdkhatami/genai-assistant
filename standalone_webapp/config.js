@@ -7,18 +7,18 @@ const CONFIG = {
     connectionPresets: {
         local: {
             name: 'Local Development',
-            url: '',  // Empty - user will enter, or will be auto-detected from server
+            url: 'http://localhost:5000',  // Common FastAPI default port
             description: 'Local server running on your machine (default: http://localhost:5000)'
         },
         production: {
             name: 'Production Server',
-            url: '',  // Empty - user will enter their production server URL
+            url: '',  // Empty - user must enter their production server URL
             description: 'Production server (enter your server URL)'
         },
         docker: {
             name: 'Docker Container',
-            url: '',  // Empty - user will enter, or will use WEB_PORT from env
-            description: 'Server running in Docker container'
+            url: 'http://localhost:8000',  // Common Docker web port
+            description: 'Server running in Docker container (default: http://localhost:8000)'
         },
         custom: {
             name: 'Custom Server',
@@ -76,8 +76,8 @@ const CONFIG = {
             }
         },
         image: {
-            default: 'flux-dev',
-            available: ['flux', 'flux-dev', 'flux-dev-8bit', 'flux-dev-4bit']
+            default: 'flux-schnell',  // Minimal model - uses least memory
+            available: ['flux-schnell', 'flux-dev', 'flux', 'flux-dev-8bit', 'flux-dev-4bit']
         },
         transcription: {
             default: 'base',

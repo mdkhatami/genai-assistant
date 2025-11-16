@@ -121,7 +121,7 @@ def get_ollama_llm():
     return llm_ollama
 
 def get_image_generator(model_name=None):
-    """Get optimized image generator instance (singleton)."""
+    """Get optimized image generator instance (on-demand loading)."""
     try:
         device_mgr = get_device_manager()
         image_config = config_loader.get_image_generation_config()
@@ -133,22 +133,41 @@ def get_image_generator(model_name=None):
         )
 
         # Use the optimized generator with proper model name mapping
+        # Default to flux-schnell (minimal model) if not specified
         model_mapping = {
             "flux": "black-forest-labs/FLUX.1-dev",
             "flux-dev": "black-forest-labs/FLUX.1-dev",
             "flux-dev-8bit": "black-forest-labs/FLUX.1-dev",
-            "flux-dev-4bit": "black-forest-labs/FLUX.1-dev"
+            "flux-dev-4bit": "black-forest-labs/FLUX.1-dev",
+            "flux-schnell": "black-forest-labs/FLUX.1-schnell"
         }
 
-        actual_model_name = model_name or image_config['model']
+        # Get model name from request or config, default to flux-schnell (minimal)
+        actual_model_name = model_name or image_config.get('model', 'flux-schnell')
+        
+        # Ensure minimal model is used if no specific model requested
+        if not model_name and actual_model_name not in model_mapping:
+            actual_model_name = 'flux-schnell'
+            logger.info(f"Using minimal model (flux-schnell) as default")
+        
         hf_model_name = model_mapping.get(actual_model_name, actual_model_name)
 
+        # Check for force CPU offload environment variable
+        force_cpu_offload = os.getenv('IMAGE_GENERATION_FORCE_CPU_OFFLOAD', 'false').lower() == 'true'
+        enable_cpu_offload = True if force_cpu_offload else None  # None = auto-detect
+        
+        # For on-demand loading, CPU offload will be auto-detected unless forced
+        # CPU offload is automatically enabled if memory is low or for schnell model
+        if force_cpu_offload:
+            logger.info("🔄 Force CPU offload enabled via IMAGE_GENERATION_FORCE_CPU_OFFLOAD")
+        
         generator = get_optimized_generator(
             model_name=hf_model_name,
             device=device_info['device'],  # From DeviceManager
             gpu_index=device_info['device_index'],  # Auto-selected
-            # Enable CPU offload only for quantized models to save memory
-            enable_cpu_offload=(actual_model_name in ["flux-dev-8bit", "flux-dev-4bit"])
+            enable_cpu_offload=enable_cpu_offload,  # Auto-detect or forced
+            auto_unload=True,  # Enable automatic unloading after use
+            unload_timeout=0.0  # Unload immediately after generation
         )
 
         return generator
@@ -438,13 +457,23 @@ async def image_generate_api(
     request: ImageGenerationRequest,
     current_user: User = Depends(get_current_user)
 ):
-    """Generate image using specified model."""
+    """Generate image using specified model (on-demand loading)."""
     start_time = time.time()
+    generator = None
     
     try:
+        # Log the requested model for debugging
+        requested_model = request.model or "default (from config)"
+        logger.logger.info(f"🎨 Image generation request - Model: {requested_model}, Prompt: '{request.prompt[:50]}{'...' if len(request.prompt) > 50 else ''}'")
+        
+        # Get generator (model will load on-demand when generate_image is called)
         generator = get_image_generator(request.model)
         if not generator:
             raise HTTPException(status_code=503, detail="Image generator not available")
+        
+        # Log which model will actually be used
+        model_info = generator.get_model_info()
+        logger.logger.info(f"📋 Using model: {model_info.get('model_name', 'unknown')}, Device: {model_info.get('device', 'unknown')}")
         
         # Get default parameters from config
         image_config = config_loader.get_image_generation_config()
@@ -452,6 +481,7 @@ async def image_generate_api(
         # Validate and limit number of images
         num_images = min(max(request.num_images or 1, 1), 8)  # Limit between 1-8 images
         
+        # Generate image (model loads on-demand here)
         result = generator.generate_image(
             prompt=request.prompt,
             width=request.width or image_config['width'],
@@ -461,6 +491,8 @@ async def image_generate_api(
             num_images=num_images,
             negative_prompt=request.negative_prompt
         )
+        
+        # Model will be automatically unloaded after generation (auto_unload=True)
         
         processing_time = time.time() - start_time
         
@@ -481,6 +513,7 @@ async def image_generate_api(
         for i, img_result in enumerate(results_list):
             if img_result.error:
                 # Handle error case
+                logger.logger.warning(f"Image generation error for image {i+1}: {img_result.error}")
                 image_items.append({
                     "image_path": "",
                     "image_data": "",
@@ -488,26 +521,61 @@ async def image_generate_api(
                     "error": img_result.error
                 })
             else:
-                # Generate unique filename
-                filename = f"{uuid.uuid4().hex}.png"
-                image_path = generated_dir / filename
+                # Validate PIL Image object
+                if img_result.image is None:
+                    logger.logger.error(f"Image {i+1}: PIL Image object is None!")
+                    image_items.append({
+                        "image_path": "",
+                        "image_data": "",
+                        "generation_time": img_result.generation_time,
+                        "error": "Generated image is None"
+                    })
+                    continue
                 
-                # Save the image to file
-                img_result.image.save(image_path, "PNG")
-                
-                # Convert to base64 for direct display in frontend
-                buffer = BytesIO()
-                img_result.image.save(buffer, format='PNG')
-                img_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-                image_data_url = f"data:image/png;base64,{img_base64}"
-                
-                image_items.append({
-                    "image_path": str(image_path),
-                    "image_data": image_data_url,
-                    "generation_time": img_result.generation_time
-                })
+                try:
+                    # Generate unique filename
+                    filename = f"{uuid.uuid4().hex}.png"
+                    image_path = generated_dir / filename
+                    
+                    # Save the image to file
+                    img_result.image.save(image_path, "PNG")
+                    logger.logger.debug(f"Image {i+1}: Saved to {image_path}")
+                    
+                    # Convert to base64 for direct display in frontend
+                    buffer = BytesIO()
+                    img_result.image.save(buffer, format='PNG')
+                    img_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+                    image_data_url = f"data:image/png;base64,{img_base64}"
+                    
+                    # Debug logging
+                    logger.logger.debug(f"Image {i+1}: Base64 length: {len(img_base64)} chars, Data URL length: {len(image_data_url)} chars")
+                    logger.logger.debug(f"Image {i+1}: Data URL prefix: {image_data_url[:50]}...")
+                    
+                    if not img_base64 or len(img_base64) < 100:
+                        logger.logger.error(f"Image {i+1}: Base64 data is too short or empty! Length: {len(img_base64)}")
+                    
+                    image_items.append({
+                        "image_path": str(image_path),
+                        "image_data": image_data_url,
+                        "generation_time": img_result.generation_time
+                    })
+                except Exception as e:
+                    logger.logger.error(f"Image {i+1}: Error processing image: {e}", exc_info=True)
+                    image_items.append({
+                        "image_path": "",
+                        "image_data": "",
+                        "generation_time": img_result.generation_time,
+                        "error": str(e)
+                    })
         
-        return ImageGenerationResponse(
+        # Debug logging for response
+        logger.logger.debug(f"Image generation response: {len(image_items)} image(s) prepared")
+        for i, item in enumerate(image_items):
+            has_data = bool(item.get('image_data'))
+            data_length = len(item.get('image_data', ''))
+            logger.logger.debug(f"  Image {i+1}: has_data={has_data}, data_length={data_length}, error={item.get('error')}")
+        
+        response = ImageGenerationResponse(
             images=image_items,
             prompt=request.prompt,
             model=results_list[0].model,
@@ -521,9 +589,17 @@ async def image_generate_api(
             },
             processing_time=processing_time
         )
+        
+        return response
     
     except Exception as e:
         logger.log_error(e, None, current_user.username)
+        # Ensure model is unloaded even on error
+        if generator:
+            try:
+                generator.unload_model()
+            except:
+                pass
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/image/models", response_model=ModelListResponse)
@@ -541,6 +617,56 @@ async def image_models_api(current_user: User = Depends(get_current_user)):
         ]
         
         return ModelListResponse(models=model_list, count=len(model_list))
+    
+    except Exception as e:
+        logger.log_error(e, None, current_user.username)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/image/memory")
+async def image_memory_info_api(current_user: User = Depends(get_current_user)):
+    """Get GPU memory information for image generation diagnostics."""
+    try:
+        generator = get_image_generator()
+        if not generator:
+            raise HTTPException(status_code=503, detail="Image generator not available")
+        
+        # Get model info which includes memory info
+        model_info = generator.get_model_info()
+        
+        # Get detailed memory info
+        memory_info = {}
+        if hasattr(generator, 'get_gpu_memory_info'):
+            memory_info = generator.get_gpu_memory_info()
+        
+        # Get transcription manager info if available
+        transcription_info = {}
+        try:
+            from app.core.robust_transcription import get_robust_transcription_manager
+            trans_manager = get_robust_transcription_manager()
+            if trans_manager:
+                trans_info = trans_manager.get_model_info()
+                transcription_info = {
+                    "cached_models": {
+                        "whisper": len(trans_info.get('whisper_models_loaded', [])),
+                        "faster_whisper": len(trans_info.get('faster_whisper_models_loaded', []))
+                    },
+                    "total_cached": (len(trans_info.get('whisper_models_loaded', [])) + 
+                                   len(trans_info.get('faster_whisper_models_loaded', [])))
+                }
+        except Exception as e:
+            transcription_info = {"error": str(e)}
+        
+        return {
+            "image_generator": {
+                "model_name": model_info.get("model_name"),
+                "is_loaded": model_info.get("is_loaded"),
+                "device": model_info.get("device"),
+                "cpu_offload": model_info.get("actual_cpu_offload", False),
+                "gpu_memory": model_info.get("gpu_memory", {})
+            },
+            "gpu_memory": memory_info,
+            "transcription_cache": transcription_info
+        }
     
     except Exception as e:
         logger.log_error(e, None, current_user.username)

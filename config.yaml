@@ -16,14 +16,19 @@ ollama:
   device: auto  # "auto", "gpu", "cuda", or "cpu" - Ollama manages actual GPU usage
 
 # Image Generation Configuration
+# Memory-optimized settings for FLUX models
+# - flux-schnell: ~12-15GB VRAM (uses sequential CPU offload when < 16GB available)
+# - flux-dev: ~24GB VRAM (requires significant GPU memory)
+# Sequential CPU offload is automatically enabled for schnell model when GPU memory < 16GB
+# Sequential offload can work with as little as 6GB VRAM (slower but functional)
 image_generation:
-  model: flux-dev
+  model: flux-schnell  # Default: flux-schnell (uses sequential CPU offload for limited memory)
   device: auto  # "auto", "gpu", "cuda", or "cpu" - auto-selects best available
-  min_memory_gb: 8  # Minimum GPU/CPU memory required (FLUX models are large)
-  width: 512
-  height: 512
-  steps: 20
-  guidance_scale: 7.5
+  min_memory_gb: 6  # Minimum GPU memory with sequential CPU offload (12GB for direct GPU)
+  width: 512  # Lower resolution reduces memory usage
+  height: 512  # Lower resolution reduces memory usage
+  steps: 4  # Schnell uses fewer steps (optimal: 4)
+  guidance_scale: 0.0  # Schnell doesn't use guidance (optimal: 0.0)
 
 # Transcription Configuration
 transcription:

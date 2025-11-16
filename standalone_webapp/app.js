@@ -118,7 +118,7 @@ class GenAIClient {
                     <div class="card-body">
                         <h6 class="card-title">${preset.name}</h6>
                         <p class="card-text small text-muted">${preset.description}</p>
-                        <small class="text-muted">${preset.url}</small>
+                        <small class="text-muted preset-url">${preset.url || 'Click to configure'}</small>
                         <div class="d-grid">
                             <button class="btn btn-outline-primary btn-sm preset-btn" data-preset="${key}">
                                 <i class="fas fa-bolt"></i> Use ${preset.name}
@@ -130,10 +130,21 @@ class GenAIClient {
             presetsContainer.appendChild(presetCard);
         });
 
-        // Add event listeners to preset buttons
+        // Add event listeners to preset buttons - use currentTarget to handle nested elements
         document.querySelectorAll('.preset-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const presetKey = e.target.dataset.preset;
+                e.stopPropagation(); // Prevent card click from firing
+                const presetKey = e.currentTarget.dataset.preset;
+                this.applyPreset(presetKey);
+            });
+        });
+
+        // Add event listeners to entire preset cards for better UX
+        document.querySelectorAll('.preset-card').forEach(card => {
+            card.addEventListener('click', (e) => {
+                // Don't trigger if clicking the button (handled separately)
+                if (e.target.closest('.preset-btn')) return;
+                const presetKey = card.dataset.preset;
                 this.applyPreset(presetKey);
             });
         });
@@ -143,11 +154,83 @@ class GenAIClient {
         const presets = window.GenAIConfig.connectionPresets;
         const preset = presets[presetKey];
         
-        if (preset) {
-            document.getElementById('serverUrl').value = preset.url;
-            if (presetKey === 'custom') {
-                document.getElementById('serverUrl').focus();
+        if (!preset) return;
+
+        // Remove active state from all preset cards
+        document.querySelectorAll('.preset-card').forEach(card => {
+            card.classList.remove('preset-card-active');
+        });
+
+        // Add active state to selected preset card
+        const selectedCard = document.querySelector(`.preset-card[data-preset="${presetKey}"]`);
+        if (selectedCard) {
+            selectedCard.classList.add('preset-card-active');
+        }
+
+        // Determine the URL to use
+        let url = preset.url;
+        
+        // If URL is empty, use intelligent defaults
+        if (!url || url.trim() === '') {
+            switch (presetKey) {
+                case 'local':
+                    url = 'http://localhost:5000';
+                    break;
+                case 'docker':
+                    url = 'http://localhost:8000';
+                    break;
+                case 'production':
+                case 'custom':
+                default:
+                    url = '';
+                    break;
             }
+        }
+
+        // Apply the URL
+        const serverUrlInput = document.getElementById('serverUrl');
+        if (serverUrlInput) {
+            // Parse URL to separate host and port if needed
+            if (url) {
+                try {
+                    const urlObj = new URL(url);
+                    serverUrlInput.value = `${urlObj.protocol}//${urlObj.hostname}`;
+                    const portInput = document.getElementById('serverPort');
+                    if (portInput && urlObj.port) {
+                        portInput.value = urlObj.port;
+                    }
+                } catch (e) {
+                    // If URL parsing fails, use as-is
+                    serverUrlInput.value = url;
+                }
+            } else {
+                serverUrlInput.value = '';
+            }
+            
+            // Focus the input field
+            serverUrlInput.focus();
+        }
+
+        // Auto-fill username if saved in localStorage
+        const saved = localStorage.getItem('genai_connection_settings');
+        if (saved) {
+            try {
+                const settings = JSON.parse(saved);
+                if (settings.username) {
+                    const usernameInput = document.getElementById('username');
+                    if (usernameInput) {
+                        usernameInput.value = settings.username;
+                    }
+                }
+            } catch (e) {
+                // Ignore parsing errors
+            }
+        }
+
+        // Update the preset URL display
+        const urlDisplay = selectedCard?.querySelector('.preset-url');
+        if (urlDisplay) {
+            urlDisplay.textContent = url || 'Click to configure';
         }
     }
 
@@ -417,6 +500,9 @@ class GenAIClient {
             url.port = port;
             serverUrl = url.toString();
         }
+        
+        // Remove trailing slash to prevent double slashes when appending paths
+        serverUrl = serverUrl.replace(/\/+$/, '');
         
         return serverUrl;
     }
@@ -720,6 +806,20 @@ class GenAIClient {
 
             const data = await response.json();
             
+            // Debug logging
+            console.log('Image generation response received:', {
+                hasImages: !!data.images,
+                imageCount: data.images ? data.images.length : 0,
+                images: data.images ? data.images.map((img, idx) => ({
+                    index: idx,
+                    hasImageData: !!img.image_data,
+                    imageDataLength: img.image_data ? img.image_data.length : 0,
+                    imageDataPrefix: img.image_data ? img.image_data.substring(0, 50) : 'N/A',
+                    hasError: !!img.error,
+                    error: img.error
+                })) : []
+            });
+            
             if (data.images && data.images.length > 0) {
                 let imagesHtml = '<div class="row">';
                 
@@ -728,19 +828,53 @@ class GenAIClient {
                                    numImages <= 2 ? 'col-md-6' : 
                                    numImages <= 4 ? 'col-md-6 col-lg-3' : 'col-md-4 col-lg-2';
                     
-                    imagesHtml += `
-                        <div class="${colClass} mb-3">
-                            <div class="text-center">
-                                <img src="${image.image_data}" alt="Generated image ${index + 1}" class="generated-image img-fluid">
-                                <div class="mt-2">
-                                    <small class="text-muted">
-                                        Image ${index + 1}
-                                        ${image.generation_time ? ` • ${image.generation_time.toFixed(2)}s` : ''}
-                                    </small>
+                    // Check if image_data exists and is valid
+                    if (!image.image_data || image.image_data.length === 0) {
+                        console.error(`Image ${index + 1}: image_data is missing or empty!`, image);
+                        imagesHtml += `
+                            <div class="${colClass} mb-3">
+                                <div class="text-center">
+                                    <div class="alert alert-warning">
+                                        <i class="fas fa-exclamation-triangle"></i> Image ${index + 1} data is missing
+                                        ${image.error ? `<br><small>Error: ${image.error}</small>` : ''}
+                                    </div>
+                                    <div class="mt-2">
+                                        <small class="text-muted">
+                                            Image ${index + 1}
+                                            ${image.generation_time ? ` • ${image.generation_time.toFixed(2)}s` : ''}
+                                        </small>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    `;
+                        `;
+                    } else {
+                        // Validate data URL format
+                        const isValidDataUrl = image.image_data.startsWith('data:image/');
+                        if (!isValidDataUrl) {
+                            console.error(`Image ${index + 1}: Invalid data URL format!`, image.image_data.substring(0, 100));
+                        }
+                        
+                        imagesHtml += `
+                            <div class="${colClass} mb-3">
+                                <div class="text-center">
+                                    <img src="${image.image_data}" 
+                                         alt="Generated image ${index + 1}" 
+                                         class="generated-image img-fluid"
+                                         onerror="console.error('Image ${index + 1} failed to load:', this.src.substring(0, 100)); this.style.display='none'; this.nextElementSibling.style.display='block';"
+                                         onload="console.log('Image ${index + 1} loaded successfully');">
+                                    <div class="alert alert-danger" style="display:none;">
+                                        <i class="fas fa-exclamation-circle"></i> Image ${index + 1} failed to load
+                                    </div>
+                                    <div class="mt-2">
+                                        <small class="text-muted">
+                                            Image ${index + 1}
+                                            ${image.generation_time ? ` • ${image.generation_time.toFixed(2)}s` : ''}
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
                 });
                 
                 imagesHtml += '</div>';
@@ -776,17 +910,6 @@ class GenAIClient {
             }
             
             const technicalDetails = friendlyError.technicalDetails || error.message;
-            let suggestionsHtml = '';
-            if (friendlyError.suggestions && friendlyError.suggestions.length > 0) {
-                suggestionsHtml = `
-                    <div class="mt-3">
-                        <strong>Suggestions:</strong>
-                        <ul class="mb-0">
-                            ${friendlyError.suggestions.map(s => `<li>${s}</li>`).join('')}
-                        </ul>
-                    </div>
-                `;
-            }
             
             resultDiv.innerHTML = `
                 <div class="alert alert-danger">

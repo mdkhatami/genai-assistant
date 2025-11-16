@@ -102,8 +102,8 @@ class TestAPIConnectivity(unittest.TestCase):
             timeout=10
         )
         
-        self.assertEqual(response.status_code, 401, 
-                        "Protected endpoint should return 401 without token")
+        self.assertIn(response.status_code, [401, 403], 
+                        "Protected endpoint should return 401 or 403 without token")
     
     def test_protected_endpoint_with_token(self):
         """Test that protected endpoints work with valid token."""

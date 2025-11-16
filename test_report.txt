@@ -1,0 +1,103 @@
+================================================
+Deployment Test Report
+Generated: 2025-11-16 17:22:13
+================================================
+
+
+--- Tier 1: Configuration Validation ---
+Module: test_config_validation.py
+/home/mo/projects/genai-assistant/venv/bin/python3: No module named pytest
+E
+======================================================================
+ERROR: test_config_validation (unittest.loader._FailedTest.test_config_validation)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_config_validation
+Traceback (most recent call last):
+  File "/home/mo/miniconda3/lib/python3.11/unittest/loader.py", line 154, in loadTestsFromName
+    module = __import__(module_name)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'test_config_validation'
+
+
+----------------------------------------------------------------------
+Ran 1 test in 0.000s
+
+FAILED (errors=1)
+Result: FAILED
+
+--- Tier 1: Local Setup Validation ---
+Command: "/home/mo/projects/genai-assistant/tests/test_startup_local.sh"
+================================================
+🧪 Local Setup Validation Tests
+================================================
+
+[0;36m▶️  Running: Prerequisites check[0m
+[0;32m✅ Python 3.11 found[0m
+[0;32m✅ Prerequisites check passed[0m
+[0;36m▶️  Running: .env file validation[0m
+[0;32m✅ .env file validation passed[0m
+[0;36m▶️  Running: Port availability check[0m
+[0;31m❌ Port 5000 is already in use[0m
+[0;31m❌ Port availability check failed[0m
+[0;34mℹ️  Cleaning up test processes...[0m
+Result: FAILED
+
+--- Tier 2: API Connectivity ---
+Module: test_api_connectivity.py
+/home/mo/projects/genai-assistant/venv/bin/python3: No module named pytest
+E
+======================================================================
+ERROR: test_api_connectivity (unittest.loader._FailedTest.test_api_connectivity)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_api_connectivity
+Traceback (most recent call last):
+  File "/home/mo/miniconda3/lib/python3.11/unittest/loader.py", line 154, in loadTestsFromName
+    module = __import__(module_name)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'test_api_connectivity'
+
+
+----------------------------------------------------------------------
+Ran 1 test in 0.000s
+
+FAILED (errors=1)
+Result: FAILED
+
+--- Tier 2: Frontend Configuration ---
+Module: test_frontend_config.py
+/home/mo/projects/genai-assistant/venv/bin/python3: No module named pytest
+E
+======================================================================
+ERROR: test_frontend_config (unittest.loader._FailedTest.test_frontend_config)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_frontend_config
+Traceback (most recent call last):
+  File "/home/mo/miniconda3/lib/python3.11/unittest/loader.py", line 154, in loadTestsFromName
+    module = __import__(module_name)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'test_frontend_config'
+
+
+----------------------------------------------------------------------
+Ran 1 test in 0.000s
+
+FAILED (errors=1)
+Result: FAILED
+
+--- Tier 2: End-to-End Connection ---
+Command: "/home/mo/projects/genai-assistant/tests/test_e2e_connection.sh"
+================================================
+🔗 End-to-End Connection Tests
+================================================
+
+Server URL: http://localhost:5000
+Webapp URL: http://localhost:8080
+
+[0;34mℹ️  Skipping server startup (set START_SERVERS=true to enable)[0m
+[0;36m▶️  Running: Health endpoint check[0m
+[0;34mℹ️  Waiting for http://localhost:5000/health to be accessible...[0m
+[0;31m❌ URL http://localhost:5000/health did not become accessible after 10 seconds[0m
+[0;31m❌ Health endpoint is not accessible[0m
+[0;31m❌ Health endpoint check failed[0m
+[0;34mℹ️  Cleaning up...[0m
+Result: FAILED
