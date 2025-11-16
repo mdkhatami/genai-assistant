@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connection Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>GenAI Assistant Connection Test</h1>
+    
+    <div class="test-section info">
+        <h3>Configuration</h3>
+        <p><strong>Server URL:</strong> <input type="text" id="serverUrl" placeholder="http://localhost:PORT" style="width: 300px;"></p>
+        <p><strong>Username:</strong> <input type="text" id="username" value="admin"></p>
+        <p><strong>Password:</strong> <input type="password" id="password" value="admin123"></p>
+        <button onclick="testConnection()">Test Connection</button>
+    </div>
+
+    <div class="test-section">
+        <h3>Test Results</h3>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        async function testConnection() {
+            const results = document.getElementById('results');
+            const serverUrl = document.getElementById('serverUrl').value.trim();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+
+            results.innerHTML = '<p>Testing connection...</p>';
+
+            try {
+                // Test 1: Health check (no auth required)
+                results.innerHTML += '<h4>1. Testing Health Endpoint</h4>';
+                const healthResponse = await fetch(`${serverUrl}/health`);
+                if (healthResponse.ok) {
+                    const healthData = await healthResponse.json();
+                    results.innerHTML += `<div class="success">✅ Health check passed: ${JSON.stringify(healthData, null, 2)}</div>`;
+                } else {
+                    results.innerHTML += `<div class="error">❌ Health check failed: ${healthResponse.status} ${healthResponse.statusText}</div>`;
+                    return;
+                }
+
+                // Test 2: Authentication
+                results.innerHTML += '<h4>2. Testing Authentication</h4>';
+                const authResponse = await fetch(`${serverUrl}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (authResponse.ok) {
+                    const authData = await authResponse.json();
+                    results.innerHTML += `<div class="success">✅ Authentication successful</div>`;
+                    results.innerHTML += `<pre>${JSON.stringify(authData, null, 2)}</pre>`;
+                    
+                    const token = authData.access_token;
+
+                    // Test 3: LLM API with auth
+                    results.innerHTML += '<h4>3. Testing LLM API</h4>';
+                    const llmResponse = await fetch(`${serverUrl}/api/llm/openai`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            prompt: "Hello, this is a test message",
+                            model: "gpt-4"
+                        })
+                    });
+
+                    if (llmResponse.ok) {
+                        const llmData = await llmResponse.json();
+                        results.innerHTML += `<div class="success">✅ LLM API call successful</div>`;
+                        results.innerHTML += `<pre>${JSON.stringify(llmData, null, 2)}</pre>`;
+                    } else {
+                        const errorText = await llmResponse.text();
+                        results.innerHTML += `<div class="error">❌ LLM API call failed: ${llmResponse.status} ${llmResponse.statusText}</div>`;
+                        results.innerHTML += `<pre>${errorText}</pre>`;
+                    }
+
+                    // Test 4: Image API with auth
+                    results.innerHTML += '<h4>4. Testing Image Generation API</h4>';
+                    const imageResponse = await fetch(`${serverUrl}/api/image/generate`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            prompt: "A simple test image",
+                            model: "flux-dev",
+                            width: 512,
+                            height: 512,
+                            steps: 20,
+                            guidance_scale: 7.5
+                        })
+                    });
+
+                    if (imageResponse.ok) {
+                        const imageData = await imageResponse.json();
+                        results.innerHTML += `<div class="success">✅ Image generation API call successful</div>`;
+                        results.innerHTML += `<pre>${JSON.stringify(imageData, null, 2)}</pre>`;
+                    } else {
+                        const errorText = await imageResponse.text();
+                        results.innerHTML += `<div class="error">❌ Image generation API call failed: ${imageResponse.status} ${imageResponse.statusText}</div>`;
+                        results.innerHTML += `<pre>${errorText}</pre>`;
+                    }
+
+                } else {
+                    const errorText = await authResponse.text();
+                    results.innerHTML += `<div class="error">❌ Authentication failed: ${authResponse.status} ${authResponse.statusText}</div>`;
+                    results.innerHTML += `<pre>${errorText}</pre>`;
+                }
+
+            } catch (error) {
+                results.innerHTML += `<div class="error">❌ Network error: ${error.message}</div>`;
+                console.error('Test error:', error);
+            }
+        }
+
+        // Auto-run test when page loads
+        window.onload = function() {
+            setTimeout(testConnection, 1000);
+        };
+    </script>
+</body>
+</html>

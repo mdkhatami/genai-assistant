@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GenAI Assistant - Debug Version</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="styles.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Connection Setup Modal -->
+    <div class="modal fade" id="connectionModal" tabindex="-1" aria-labelledby="connectionModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="connectionModalLabel">
+                        <i class="fas fa-server"></i> Server Connection Setup (Debug)
+                    </h5>
+                </div>
+                <div class="modal-body">
+                    <form id="connectionForm">
+                        <div class="mb-3">
+                            <label for="serverUrl" class="form-label">Server URL</label>
+                            <input type="url" class="form-control" id="serverUrl" 
+                                   placeholder="http://localhost:PORT" required>
+                            <div class="form-text">Enter the full URL of your FastAPI server</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="username" 
+                                   placeholder="admin" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="password" 
+                                   placeholder="admin123" required>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="rememberConnection">
+                            <label class="form-check-label" for="rememberConnection">
+                                Remember connection settings
+                            </label>
+                        </div>
+                    </form>
+                    
+                    <!-- Debug Information -->
+                    <div class="mt-3 p-3 bg-light border rounded">
+                        <h6>Debug Information:</h6>
+                        <div id="debugInfo">
+                            <p><strong>Server URL:</strong> <span id="debugServerUrl">-</span></p>
+                            <p><strong>Username:</strong> <span id="debugUsername">-</span></p>
+                            <p><strong>Password:</strong> <span id="debugPassword">-</span></p>
+                            <p><strong>Server URL Length:</strong> <span id="debugServerUrlLength">-</span></p>
+                            <p><strong>Username Length:</strong> <span id="debugUsernameLength">-</span></p>
+                            <p><strong>Password Length:</strong> <span id="debugPasswordLength">-</span></p>
+                            <p><strong>Validation Result:</strong> <span id="debugValidation">-</span></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="debugBtn">
+                        <i class="fas fa-bug"></i> Debug Fields
+                    </button>
+                    <button type="button" class="btn btn-primary" id="connectBtn">
+                        <i class="fas fa-plug"></i> Connect
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Debug Console -->
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 9999;">
+        <div class="card" style="width: 400px; max-height: 300px;">
+            <div class="card-header">
+                <h6 class="mb-0">Debug Console</h6>
+            </div>
+            <div class="card-body" style="max-height: 200px; overflow-y: auto;">
+                <div id="debugConsole"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="config.js"></script>
+    <script>
+        // Debug version of the GenAI Client
+        class GenAIDebugClient {
+            constructor() {
+                this.serverUrl = '';
+                this.authToken = '';
+                this.isConnected = false;
+                this.connectionModal = null;
+                
+                this.init();
+            }
+
+            init() {
+                this.setupEventListeners();
+                this.loadSavedConnection();
+                this.showConnectionModal();
+                this.log('Debug client initialized');
+            }
+
+            setupEventListeners() {
+                // Connection modal events
+                document.getElementById('connectBtn').addEventListener('click', () => this.connectToServer());
+                document.getElementById('debugBtn').addEventListener('click', () => this.debugFields());
+                
+                // Form submission prevention
+                document.getElementById('connectionForm').addEventListener('submit', (e) => e.preventDefault());
+                
+                // Real-time field monitoring
+                document.getElementById('serverUrl').addEventListener('input', () => this.updateDebugInfo());
+                document.getElementById('username').addEventListener('input', () => this.updateDebugInfo());
+                document.getElementById('password').addEventListener('input', () => this.updateDebugInfo());
+                
+                this.log('Event listeners set up');
+            }
+
+            showConnectionModal() {
+                this.connectionModal = new bootstrap.Modal(document.getElementById('connectionModal'));
+                this.connectionModal.show();
+                this.log('Connection modal shown');
+            }
+
+            debugFields() {
+                const serverUrl = document.getElementById('serverUrl').value;
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+
+                this.log('=== DEBUG FIELDS ===');
+                this.log(`Server URL: "${serverUrl}" (length: ${serverUrl.length})`);
+                this.log(`Username: "${username}" (length: ${username.length})`);
+                this.log(`Password: "${password}" (length: ${password.length})`);
+                
+                // Check for hidden characters
+                this.log(`Server URL char codes: [${Array.from(serverUrl).map(c => c.charCodeAt(0)).join(', ')}]`);
+                this.log(`Username char codes: [${Array.from(username).map(c => c.charCodeAt(0)).join(', ')}]`);
+                this.log(`Password char codes: [${Array.from(password).map(c => c.charCodeAt(0)).join(', ')}]`);
+                
+                // Check trimmed values
+                const trimmedServerUrl = serverUrl.trim();
+                const trimmedUsername = username.trim();
+                const trimmedPassword = password.trim();
+                
+                this.log(`Trimmed Server URL: "${trimmedServerUrl}" (length: ${trimmedServerUrl.length})`);
+                this.log(`Trimmed Username: "${trimmedUsername}" (length: ${trimmedUsername.length})`);
+                this.log(`Trimmed Password: "${trimmedPassword}" (length: ${trimmedPassword.length})`);
+                
+                // Validation check
+                const isValid = trimmedServerUrl && trimmedUsername && trimmedPassword;
+                this.log(`Validation result: ${isValid ? 'PASS' : 'FAIL'}`);
+                
+                this.updateDebugInfo();
+            }
+
+            updateDebugInfo() {
+                const serverUrl = document.getElementById('serverUrl').value;
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+                
+                const trimmedServerUrl = serverUrl.trim();
+                const trimmedUsername = username.trim();
+                const trimmedPassword = password.trim();
+                
+                document.getElementById('debugServerUrl').textContent = `"${serverUrl}"`;
+                document.getElementById('debugUsername').textContent = `"${username}"`;
+                document.getElementById('debugPassword').textContent = `"${password}"`;
+                document.getElementById('debugServerUrlLength').textContent = serverUrl.length;
+                document.getElementById('debugUsernameLength').textContent = username.length;
+                document.getElementById('debugPasswordLength').textContent = password.length;
+                
+                const isValid = trimmedServerUrl && trimmedUsername && trimmedPassword;
+                document.getElementById('debugValidation').textContent = isValid ? 'PASS' : 'FAIL';
+                document.getElementById('debugValidation').className = isValid ? 'text-success' : 'text-danger';
+            }
+
+            async connectToServer() {
+                this.log('=== CONNECT TO SERVER ===');
+                
+                const serverUrl = document.getElementById('serverUrl').value.trim();
+                const username = document.getElementById('username').value.trim();
+                const password = document.getElementById('password').value.trim();
+                const rememberConnection = document.getElementById('rememberConnection').checked;
+
+                this.log(`Server URL: "${serverUrl}"`);
+                this.log(`Username: "${username}"`);
+                this.log(`Password: "${password}"`);
+                this.log(`Remember: ${rememberConnection}`);
+
+                if (!serverUrl || !username || !password) {
+                    this.log('VALIDATION FAILED: Empty fields detected');
+                    this.log(`Server URL empty: ${!serverUrl}`);
+                    this.log(`Username empty: ${!username}`);
+                    this.log(`Password empty: ${!password}`);
+                    this.showError('Please fill in all fields');
+                    return;
+                }
+
+                this.log('VALIDATION PASSED: All fields filled');
+                this.log('Attempting connection...');
+                
+                // For debugging, we'll just show success without actually connecting
+                this.showSuccess('Debug: Validation passed! (No actual connection attempted)');
+            }
+
+            showError(message) {
+                this.log(`ERROR: ${message}`);
+                this.showNotification(message, 'error');
+            }
+
+            showSuccess(message) {
+                this.log(`SUCCESS: ${message}`);
+                this.showNotification(message, 'success');
+            }
+
+            showNotification(message, type) {
+                const notification = document.createElement('div');
+                notification.className = `alert alert-${type === 'error' ? 'danger' : 'success'} alert-dismissible fade show position-fixed`;
+                notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+                notification.innerHTML = `
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.remove();
+                    }
+                }, 5000);
+            }
+
+            loadSavedConnection() {
+                const saved = localStorage.getItem('genai_connection_settings');
+                if (saved) {
+                    const settings = JSON.parse(saved);
+                    document.getElementById('serverUrl').value = settings.serverUrl || '';
+                    document.getElementById('username').value = settings.username || '';
+                    this.log('Loaded saved connection settings');
+                } else if (window.GenAIConfig) {
+                    document.getElementById('serverUrl').value = window.GenAIConfig.defaultServer.url || '';
+                    document.getElementById('username').value = window.GenAIConfig.defaultServer.username || '';
+                    this.log('Loaded default configuration');
+                }
+                this.updateDebugInfo();
+            }
+
+            log(message) {
+                const console = document.getElementById('debugConsole');
+                const timestamp = new Date().toLocaleTimeString();
+                const logEntry = document.createElement('div');
+                logEntry.innerHTML = `<small class="text-muted">[${timestamp}]</small> ${message}`;
+                console.appendChild(logEntry);
+                console.scrollTop = console.scrollHeight;
+                
+                // Also log to browser console
+                console.log(`[GenAI Debug] ${message}`);
+            }
+        }
+
+        // Initialize the debug application
+        document.addEventListener('DOMContentLoaded', () => {
+            new GenAIDebugClient();
+        });
+    </script>
+</body>
+</html>

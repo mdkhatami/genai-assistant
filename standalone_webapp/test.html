@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GenAI Assistant - Connection Test</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { padding: 20px; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 4px; }
+        .success { background-color: #d4edda; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; border: 1px solid #f5c6cb; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>GenAI Assistant - Connection Test</h1>
+        <p>This page tests the connection to your GenAI Assistant server.</p>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Server Configuration</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="serverUrl" class="form-label">Server URL</label>
+                            <input type="url" class="form-control" id="serverUrl" 
+                                   placeholder="http://localhost:PORT">
+                        </div>
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="username" value="admin">
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="password" value="admin123">
+                        </div>
+                        <button class="btn btn-primary" onclick="testConnection()">Test Connection</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Test Results</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="testResults">
+                            <p class="text-muted">Click "Test Connection" to start testing...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-4">
+            <a href="index.html" class="btn btn-success">Open Full Application</a>
+        </div>
+    </div>
+
+    <script>
+        async function testConnection() {
+            const serverUrl = document.getElementById('serverUrl').value.trim();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const resultsDiv = document.getElementById('testResults');
+            
+            if (!serverUrl || !username || !password) {
+                resultsDiv.innerHTML = '<div class="test-result error">Please fill in all fields</div>';
+                return;
+            }
+            
+            resultsDiv.innerHTML = '<div class="test-result">Testing connection...</div>';
+            
+            try {
+                // Test 1: Health check
+                resultsDiv.innerHTML += '<div class="test-result">1. Testing health endpoint...</div>';
+                const healthResponse = await fetch(`${serverUrl}/health`);
+                if (!healthResponse.ok) {
+                    throw new Error(`Health check failed: ${healthResponse.status}`);
+                }
+                const healthData = await healthResponse.json();
+                resultsDiv.innerHTML += `<div class="test-result success">✅ Health check passed: ${healthData.status}</div>`;
+                
+                // Test 2: Authentication
+                resultsDiv.innerHTML += '<div class="test-result">2. Testing authentication...</div>';
+                const authResponse = await fetch(`${serverUrl}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                if (!authResponse.ok) {
+                    throw new Error(`Authentication failed: ${authResponse.status}`);
+                }
+                
+                const authData = await authResponse.json();
+                resultsDiv.innerHTML += '<div class="test-result success">✅ Authentication successful</div>';
+                
+                // Test 3: API endpoints
+                resultsDiv.innerHTML += '<div class="test-result">3. Testing API endpoints...</div>';
+                
+                const token = authData.access_token;
+                const headers = {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                };
+                
+                // Test image models endpoint
+                try {
+                    const modelsResponse = await fetch(`${serverUrl}/api/image/models`, { headers });
+                    if (modelsResponse.ok) {
+                        resultsDiv.innerHTML += '<div class="test-result success">✅ Image models endpoint accessible</div>';
+                    } else {
+                        resultsDiv.innerHTML += '<div class="test-result error">⚠️ Image models endpoint failed</div>';
+                    }
+                } catch (e) {
+                    resultsDiv.innerHTML += '<div class="test-result error">⚠️ Image models endpoint error</div>';
+                }
+                
+                resultsDiv.innerHTML += '<div class="test-result success">🎉 All tests completed! Your server is ready.</div>';
+                resultsDiv.innerHTML += '<div class="test-result">You can now use the full application.</div>';
+                
+            } catch (error) {
+                console.error('Test error:', error);
+                resultsDiv.innerHTML += `<div class="test-result error">❌ Test failed: ${error.message}</div>`;
+                resultsDiv.innerHTML += '<div class="test-result error">Please check your server configuration and try again.</div>';
+            }
+        }
+        
+        // Auto-test on page load
+        window.addEventListener('load', () => {
+            setTimeout(testConnection, 1000);
+        });
+    </script>
+</body>
+</html>

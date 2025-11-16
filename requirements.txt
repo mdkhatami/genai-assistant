@@ -1,0 +1,39 @@
+# Core LLM dependencies
+openai
+ollama
+
+# Image generation dependencies  
+diffusers
+transformers
+torch
+torchvision
+torchaudio
+accelerate
+safetensors
+sentencepiece
+
+# Transcription dependencies
+whisper
+faster-whisper
+
+# Utility dependencies
+python-dotenv
+requests
+pillow
+numpy
+tqdm
+
+# Web interface dependencies
+flask
+werkzeug
+
+# FastAPI dependencies
+fastapi
+uvicorn
+python-multipart
+pydantic
+
+# Authentication dependencies (replacing passlib[bcrypt] to avoid bcrypt issues)
+python-jose[cryptography]
+pyjwt
+bcrypt

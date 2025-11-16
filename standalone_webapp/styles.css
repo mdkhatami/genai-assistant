@@ -1,0 +1,454 @@
+/* Custom styles for GenAI Assistant Standalone Client */
+
+body {
+    background-color: #f8f9fa;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Loading overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+/* Connection status indicator */
+#connectionStatus i {
+    font-size: 0.8em;
+    margin-right: 5px;
+}
+
+/* Service content */
+.service-content {
+    transition: all 0.3s ease;
+}
+
+/* Placeholder image */
+.placeholder-image {
+    border: 2px dashed #dee2e6;
+    border-radius: 8px;
+    padding: 40px;
+    background-color: #f8f9fa;
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Generated image */
+.generated-image {
+    max-width: 100%;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Response containers */
+.response-container {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 15px;
+}
+
+.response-container.success {
+    background-color: #d1edff;
+    border-color: #bee5eb;
+}
+
+.response-container.error {
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+}
+
+/* LLM response styling */
+.llm-response {
+    white-space: pre-wrap;
+    font-family: 'Courier New', monospace;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 15px;
+    margin-top: 15px;
+}
+
+/* Transcription result */
+.transcription-result {
+    background-color: #e8f5e8;
+    border: 1px solid #c3e6c3;
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 15px;
+}
+
+/* Navigation improvements */
+.navbar-brand {
+    font-weight: bold;
+}
+
+.navbar-brand i {
+    margin-right: 8px;
+}
+
+/* Sidebar improvements */
+.list-group-item {
+    border-left: none;
+    border-right: none;
+    border-radius: 0 !important;
+}
+
+.list-group-item:first-child {
+    border-top: none;
+}
+
+.list-group-item:last-child {
+    border-bottom: none;
+}
+
+.list-group-item i {
+    margin-right: 8px;
+    width: 16px;
+}
+
+/* Form improvements */
+.form-control:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+/* Button improvements */
+.btn {
+    border-radius: 6px;
+}
+
+.btn i {
+    margin-right: 5px;
+}
+
+/* Card improvements */
+.card {
+    border: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+}
+
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    font-weight: 600;
+}
+
+/* Modal improvements */
+.modal-content {
+    border-radius: 8px;
+    border: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+    .col-md-3 {
+        margin-bottom: 20px;
+    }
+    
+    .placeholder-image {
+        min-height: 200px;
+        padding: 20px;
+    }
+}
+
+/* Animation for service switching */
+.service-content {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Status indicators */
+.status-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 5px;
+}
+
+.status-connected {
+    background-color: #28a745;
+}
+
+.status-disconnected {
+    background-color: #dc3545;
+}
+
+.status-connecting {
+    background-color: #ffc107;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+/* Error message styling */
+.error-message {
+    color: #dc3545;
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 4px;
+    padding: 10px;
+    margin-top: 10px;
+}
+
+/* Success message styling */
+.success-message {
+    color: #155724;
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    border-radius: 4px;
+    padding: 10px;
+    margin-top: 10px;
+}
+
+/* File upload styling */
+.file-upload-area {
+    border: 2px dashed #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    background-color: #f8f9fa;
+    transition: all 0.3s ease;
+}
+
+.file-upload-area:hover {
+    border-color: #0d6efd;
+    background-color: #e7f3ff;
+}
+
+.file-upload-area.dragover {
+    border-color: #0d6efd;
+    background-color: #e7f3ff;
+}
+
+/* Progress bar styling */
+.progress {
+    height: 8px;
+    border-radius: 4px;
+    margin-top: 10px;
+}
+
+/* Tooltip styling */
+.tooltip-inner {
+    background-color: #343a40;
+    border-radius: 4px;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Ollama-specific styling */
+#ollamaInfo {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-left: 4px solid #28a745;
+}
+
+#ollamaStatus .alert {
+    margin-bottom: 0;
+}
+
+#ollamaStatus .alert-success {
+    border-color: #28a745;
+    background-color: #d4edda;
+}
+
+#ollamaStatus .alert-warning {
+    border-color: #ffc107;
+    background-color: #fff3cd;
+}
+
+#ollamaStatus .alert-danger {
+    border-color: #dc3545;
+    background-color: #f8d7da;
+}
+
+/* LLM Response styling enhancements */
+.response-container.success {
+    border-left: 4px solid #28a745;
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 15px;
+}
+
+.response-container.error {
+    border-left: 4px solid #dc3545;
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 15px;
+}
+
+.llm-response {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    line-height: 1.6;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.metadata {
+    border-top: 1px solid #dee2e6;
+    padding-top: 10px;
+    margin-top: 10px;
+}
+
+/* Badge styling for providers */
+.badge.bg-success {
+    background-color: #28a745 !important;
+}
+
+.badge.bg-primary {
+    background-color: #0d6efd !important;
+}
+
+/* Loading spinner for models */
+#llmModel option:first-child {
+    font-style: italic;
+    color: #6c757d;
+}
+
+/* Connection Preset Styling */
+.preset-card {
+    transition: all 0.3s ease;
+    border: 2px solid #e9ecef;
+    cursor: pointer;
+}
+
+.preset-card:hover {
+    border-color: #0d6efd;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.preset-card .card-body {
+    padding: 1rem;
+}
+
+.preset-card .card-title {
+    margin-bottom: 0.5rem;
+    color: #495057;
+    font-weight: 600;
+}
+
+.preset-card .card-text {
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+}
+
+.preset-btn {
+    transition: all 0.2s ease;
+}
+
+.preset-btn:hover {
+    transform: scale(1.02);
+}
+
+/* Connection Modal Enhancements */
+#connectionModal .modal-dialog {
+    max-width: 800px;
+}
+
+#connectionStatus {
+    margin-top: 1rem;
+    border-radius: 8px;
+}
+
+#connectionStatus.alert-success {
+    border-left: 4px solid #28a745;
+}
+
+#connectionStatus.alert-danger {
+    border-left: 4px solid #dc3545;
+}
+
+#connectionStatus.alert-warning {
+    border-left: 4px solid #ffc107;
+}
+
+#connectionStatus.alert-info {
+    border-left: 4px solid #17a2b8;
+}
+
+/* Password toggle button */
+#togglePassword {
+    border-left: none;
+}
+
+#togglePassword:hover {
+    background-color: #e9ecef;
+}
+
+/* Form enhancements */
+.form-control:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .preset-card {
+        margin-bottom: 1rem;
+    }
+    
+    #connectionModal .modal-dialog {
+        margin: 1rem;
+    }
+}

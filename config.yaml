@@ -1,0 +1,49 @@
+# GenAI Assistant Configuration File
+# This file contains all non-sensitive configuration settings
+
+# OpenAI Configuration
+openai:
+  model: gpt-4
+  max_tokens: 1000
+  temperature: 0.7
+
+# Ollama Configuration
+# Note: base_url port is overridden by OLLAMA_PORT or OLLAMA_BASE_URL environment variables
+# Note: GPU control is managed by Ollama service itself, not this application
+ollama:
+  base_url: http://localhost:11434  # Default, overridden by OLLAMA_BASE_URL or constructed from OLLAMA_PORT
+  model: llama3.3:latest
+  device: auto  # "auto", "gpu", "cuda", or "cpu" - Ollama manages actual GPU usage
+
+# Image Generation Configuration
+image_generation:
+  model: flux-dev
+  device: auto  # "auto", "gpu", "cuda", or "cpu" - auto-selects best available
+  min_memory_gb: 8  # Minimum GPU/CPU memory required (FLUX models are large)
+  width: 512
+  height: 512
+  steps: 20
+  guidance_scale: 7.5
+
+# Transcription Configuration
+transcription:
+  model: base
+  model_type: faster-whisper
+  device: auto  # "auto", "gpu", "cuda", or "cpu" - auto-selects best available
+  language: en
+  compute_type: auto  # "auto", "float16", "float32", or "int8" - auto-adjusts based on device
+
+# Web Interface Configuration
+# Note: Port values are overridden by environment variables (WEB_PORT, WEBAPP_PORT, etc.)
+# See .env file or .env_example for port configuration
+web:
+  host: 0.0.0.0
+  port: 5000  # Default, overridden by WEB_PORT env var
+  debug: false
+  max_file_size: 16777216
+
+# Server Configuration
+server:
+  log_level: INFO
+  cors_origins: ["*"]
+  timeout: 300

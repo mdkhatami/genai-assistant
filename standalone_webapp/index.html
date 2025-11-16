@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GenAI Assistant - Standalone Client</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="styles.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Connection Setup Modal -->
+    <div class="modal fade" id="connectionModal" tabindex="-1" aria-labelledby="connectionModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="connectionModalLabel">
+                        <i class="fas fa-server"></i> Connect to GenAI Assistant Server
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Connection Presets -->
+                    <div class="mb-4">
+                        <h6><i class="fas fa-bolt"></i> Quick Connect</h6>
+                        <div class="row" id="connectionPresets">
+                            <!-- Presets will be populated by JavaScript -->
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Manual Connection Form -->
+                    <div class="mb-3">
+                        <h6><i class="fas fa-cog"></i> Manual Connection</h6>
+                    </div>
+                    
+                    <form id="connectionForm">
+                        <div class="row mb-3">
+                            <div class="col-md-8">
+                                <label for="serverUrl" class="form-label">Server URL</label>
+                                <input type="url" class="form-control" id="serverUrl" 
+                                       placeholder="http://localhost:PORT" required>
+                                <div class="form-text">Enter the full URL of your FastAPI server</div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="serverPort" class="form-label">Port (optional)</label>
+                                <input type="number" class="form-control" id="serverPort" 
+                                       placeholder="PORT" min="1" max="65535">
+                                <div class="form-text">Will be appended to URL if provided</div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="username" class="form-label">Username</label>
+                                <input type="text" class="form-control" id="username" 
+                                       placeholder="cloudride" required>
+                                <div class="form-text">Default: cloudride</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="password" class="form-label">Password</label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="password" 
+                                           placeholder="Enter password" required>
+                                    <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="rememberConnection" checked>
+                                    <label class="form-check-label" for="rememberConnection">
+                                        Remember server URL and username
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="testConnection">
+                                    <label class="form-check-label" for="testConnection">
+                                        Test connection before login
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- Connection Status -->
+                    <div id="connectionStatus" class="alert" style="display: none;">
+                        <i class="fas fa-info-circle"></i> <span id="connectionStatusText"></span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button type="button" class="btn btn-info" id="testConnectionBtn">
+                        <i class="fas fa-network-wired"></i> Test Connection
+                    </button>
+                    <button type="button" class="btn btn-primary" id="connectBtn">
+                        <i class="fas fa-plug"></i> Connect
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="mainApp" style="display: none;">
+        <!-- Navigation -->
+        <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="#">
+                    <i class="fas fa-robot"></i> GenAI Assistant
+                </a>
+                <div class="navbar-nav ms-auto">
+                    <div class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-cog"></i> Settings
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#" id="changeConnectionBtn">
+                                <i class="fas fa-server"></i> Change Server
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" id="clearSettingsBtn">
+                                <i class="fas fa-trash"></i> Clear Settings
+                            </a></li>
+                        </ul>
+                    </div>
+                    <div class="nav-item">
+                        <span class="nav-link" id="connectionStatus">
+                            <i class="fas fa-circle text-success"></i> Connected
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="container-fluid mt-3">
+            <div class="row">
+                <!-- Sidebar -->
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-tools"></i> Services</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="list-group">
+                                <a href="#" class="list-group-item list-group-item-action active" data-service="llm">
+                                    <i class="fas fa-comments"></i> LLM Chat
+                                </a>
+                                <a href="#" class="list-group-item list-group-item-action" data-service="image">
+                                    <i class="fas fa-image"></i> Image Generation
+                                </a>
+                                <a href="#" class="list-group-item list-group-item-action" data-service="transcription">
+                                    <i class="fas fa-microphone"></i> Audio Transcription
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Content Area -->
+                <div class="col-md-9">
+                    <!-- LLM Service -->
+                    <div id="llmService" class="service-content">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="fas fa-comments"></i> LLM Chat</h5>
+                                <p class="mb-0 text-muted">Chat with OpenAI or local Ollama models</p>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="llmProvider" class="form-label">Provider</label>
+                                            <select class="form-select" id="llmProvider">
+                                                <option value="openai">🤖 OpenAI</option>
+                                                <option value="ollama">🦙 Ollama (Local)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="llmModel" class="form-label">Model</label>
+                                            <select class="form-select" id="llmModel">
+                                                <option value="gpt-4">GPT-4</option>
+                                                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Ollama Information Section (hidden by default) -->
+                                <div id="ollamaInfo" style="display: none;">
+                                    <div class="mb-3">
+                                        <h6><i class="fas fa-server"></i> Ollama Server Status</h6>
+                                        <div id="ollamaStatus">
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle"></i>
+                                                Loading Ollama server information...
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="llmPrompt" class="form-label">Prompt</label>
+                                    <textarea class="form-control" id="llmPrompt" rows="4" 
+                                              placeholder="Enter your prompt here..."></textarea>
+                                </div>
+
+                                <div class="d-flex gap-2 mb-3">
+                                    <button class="btn btn-primary" id="sendLlmBtn">
+                                        <i class="fas fa-paper-plane"></i> Send
+                                    </button>
+                                    <button class="btn btn-outline-secondary" id="clearLlmBtn" onclick="document.getElementById('llmPrompt').value = ''; document.getElementById('llmResponse').innerHTML = '';">
+                                        <i class="fas fa-trash"></i> Clear
+                                    </button>
+                                </div>
+
+                                <div id="llmResponse" class="mt-3"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Image Generation Service -->
+                    <div id="imageService" class="service-content" style="display: none;">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="fas fa-image"></i> Image Generation</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="imageModel" class="form-label">Model</label>
+                                            <select class="form-select" id="imageModel">
+                                                <option value="flux-dev">Flux Dev</option>
+                                                <option value="flux-dev-8bit">Flux Dev (8-bit)</option>
+                                                <option value="flux-dev-4bit">Flux Dev (4-bit)</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="imagePrompt" class="form-label">Prompt</label>
+                                            <textarea class="form-control" id="imagePrompt" rows="3" 
+                                                      placeholder="Describe the image you want to generate..."></textarea>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="imageResolution" class="form-label">Resolution</label>
+                                            <select class="form-select" id="imageResolution">
+                                                <option value="512x512">512×512</option>
+                                                <option value="768x768" selected>768×768</option>
+                                                <option value="1024x1024">1024×1024</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="imageCount" class="form-label">Number of Images</label>
+                                            <select class="form-select" id="imageCount">
+                                                <option value="1">1 image</option>
+                                                <option value="2">2 images</option>
+                                                <option value="3">3 images</option>
+                                                <option value="4" selected>4 images</option>
+                                                <option value="6">6 images</option>
+                                                <option value="8">8 images</option>
+                                            </select>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <label for="imageSteps" class="form-label">Steps</label>
+                                                <input type="number" class="form-control" id="imageSteps" value="20" min="1" max="100">
+                                            </div>
+                                            <div class="col-6">
+                                                <label for="imageGuidance" class="form-label">Guidance Scale</label>
+                                                <input type="number" class="form-control" id="imageGuidance" value="3.5" min="0.1" max="20" step="0.1">
+                                            </div>
+                                        </div>
+                                        <button class="btn btn-primary mt-3" id="generateImageBtn">
+                                            <i class="fas fa-magic"></i> Generate Image
+                                        </button>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div id="imageResult" class="text-center">
+                                            <div class="placeholder-image">
+                                                <i class="fas fa-image fa-3x text-muted"></i>
+                                                <p class="text-muted">Generated image will appear here</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Transcription Service -->
+                    <div id="transcriptionService" class="service-content" style="display: none;">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="fas fa-microphone"></i> Professional Audio Transcription</h5>
+                                <p class="mb-0 text-muted">Choose your transcription engine and customize settings</p>
+                            </div>
+                            <div class="card-body">
+                                <!-- File Selection -->
+                                <div class="mb-4">
+                                    <label for="audioFile" class="form-label fw-bold">Audio/Video File</label>
+                                    <input type="file" class="form-control" id="audioFile" accept="audio/*,video/*">
+                                    <div class="form-text">Supports: MP3, WAV, M4A, FLAC, MP4, AVI, MOV and more</div>
+                                </div>
+
+                                <!-- Model Type Selection Tabs -->
+                                <ul class="nav nav-tabs mb-3" id="transcriptionTabs" role="tablist">
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link active" id="faster-whisper-tab" data-bs-toggle="tab" 
+                                                data-bs-target="#faster-whisper-panel" type="button" role="tab">
+                                            <i class="fas fa-rocket"></i> Faster-Whisper <span class="badge bg-success ms-1">Recommended</span>
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="openai-whisper-tab" data-bs-toggle="tab" 
+                                                data-bs-target="#openai-whisper-panel" type="button" role="tab">
+                                            <i class="fas fa-brain"></i> OpenAI Whisper
+                                        </button>
+                                    </li>
+                                </ul>
+
+                                <!-- Tab Content -->
+                                <div class="tab-content" id="transcriptionTabContent">
+                                    
+                                    <!-- Faster-Whisper Panel -->
+                                    <div class="tab-pane fade show active" id="faster-whisper-panel" role="tabpanel">
+                                        <div class="row mb-3">
+                                            <div class="col-12">
+                                                <div class="alert alert-info">
+                                                    <i class="fas fa-info-circle"></i> 
+                                                    <strong>Faster-Whisper:</strong> Optimized for speed and memory efficiency. 
+                                                    Best for production use with GPU acceleration.
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Basic Settings -->
+                                        <div class="row mb-3">
+                                            <div class="col-md-4">
+                                                <label for="fasterModelName" class="form-label">Model Size</label>
+                                                <select class="form-select" id="fasterModelName">
+                                                    <option value="tiny">Tiny (39MB, Fastest)</option>
+                                                    <option value="base" selected>Base (74MB, Balanced)</option>
+                                                    <option value="small">Small (244MB, Better)</option>
+                                                    <option value="medium">Medium (769MB, Good)</option>
+                                                    <option value="large">Large (1550MB, Very Good)</option>
+                                                    <option value="large-v2">Large v2 (1550MB, Better)</option>
+                                                    <option value="large-v3">Large v3 (1550MB, Best)</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label for="fasterLanguage" class="form-label">Language</label>
+                                                <select class="form-select" id="fasterLanguage">
+                                                    <option value="auto" selected>🌍 Auto-detect</option>
+                                                    <option value="en">🇺🇸 English</option>
+                                                    <option value="es">🇪🇸 Spanish</option>
+                                                    <option value="fr">🇫🇷 French</option>
+                                                    <option value="de">🇩🇪 German</option>
+                                                    <option value="it">🇮🇹 Italian</option>
+                                                    <option value="pt">🇵🇹 Portuguese</option>
+                                                    <option value="ru">🇷🇺 Russian</option>
+                                                    <option value="ja">🇯🇵 Japanese</option>
+                                                    <option value="ko">🇰🇷 Korean</option>
+                                                    <option value="zh">🇨🇳 Chinese</option>
+                                                    <option value="ar">🇸🇦 Arabic</option>
+                                                    <option value="hi">🇮🇳 Hindi</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label for="fasterTask" class="form-label">Task</label>
+                                                <select class="form-select" id="fasterTask">
+                                                    <option value="transcribe" selected>📝 Transcribe</option>
+                                                    <option value="translate">🌐 Translate to English</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <!-- Performance Settings -->
+                                        <div class="row mb-3">
+                                            <div class="col-md-3">
+                                                <label for="fasterComputeType" class="form-label">Precision</label>
+                                                <select class="form-select" id="fasterComputeType">
+                                                    <option value="float16" selected>Float16 (Fastest)</option>
+                                                    <option value="float32">Float32 (Higher Quality)</option>
+                                                    <option value="int8">Int8 (Lowest Memory)</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label for="fasterDevice" class="form-label">Device</label>
+                                                <select class="form-select" id="fasterDevice">
+                                                    <option value="cuda" selected>🚀 GPU (CUDA)</option>
+                                                    <option value="cpu">💻 CPU</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label for="fasterGpuIndex" class="form-label">GPU Index</label>
+                                                <input type="number" class="form-control" id="fasterGpuIndex" value="3" min="0" max="7">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label for="fasterCpuThreads" class="form-label">CPU Threads</label>
+                                                <input type="number" class="form-control" id="fasterCpuThreads" value="4" min="1" max="16">
+                                            </div>
+                                        </div>
+
+                                        <!-- Advanced Options -->
+                                <div class="mb-3">
+                                            <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" 
+                                                    data-bs-target="#fasterAdvanced" aria-expanded="false">
+                                                <i class="fas fa-cog"></i> Advanced Options
+                                            </button>
+                                        </div>
+                                        
+                                        <div class="collapse" id="fasterAdvanced">
+                                            <div class="card card-body bg-light">
+                                                <div class="row mb-3">
+                                                    <div class="col-md-12">
+                                                        <label for="fasterInitialPrompt" class="form-label">Initial Prompt</label>
+                                                        <input type="text" class="form-control" id="fasterInitialPrompt" 
+                                                               placeholder="Context to guide transcription">
+                                                    </div>
+                                                </div>
+                                                <div class="row mb-3">
+                                                    <div class="col-md-3">
+                                                        <label for="fasterBeamSize" class="form-label">Beam Size</label>
+                                                        <input type="number" class="form-control" id="fasterBeamSize" value="5" min="1" max="10">
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <label for="fasterNumWorkers" class="form-label">Workers</label>
+                                                        <input type="number" class="form-control" id="fasterNumWorkers" value="1" min="1" max="8">
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <label for="fasterTemperature" class="form-label">Temperature</label>
+                                                        <input type="number" class="form-control" id="fasterTemperature" value="0.0" min="0" max="1" step="0.1">
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <label for="fasterVadFilter" class="form-label">VAD Filter</label>
+                                                        <select class="form-select" id="fasterVadFilter">
+                                                            <option value="true">Enabled</option>
+                                                            <option value="false" selected>Disabled</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div class="row mb-3">
+                                                    <div class="col-md-4">
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" id="fasterConditionOnPreviousText" checked>
+                                                            <label class="form-check-label" for="fasterConditionOnPreviousText">
+                                                                Condition on previous text
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" id="fasterWordTimestamps">
+                                                            <label class="form-check-label" for="fasterWordTimestamps">
+                                                                Word-level timestamps
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- OpenAI Whisper Panel -->
+                                    <div class="tab-pane fade" id="openai-whisper-panel" role="tabpanel">
+                                        <div class="row mb-3">
+                                            <div class="col-12">
+                                                <div class="alert alert-warning">
+                                                    <i class="fas fa-exclamation-triangle"></i> 
+                                                    <strong>OpenAI Whisper:</strong> Original implementation with highest accuracy. 
+                                                    Slower but may provide better results for challenging audio.
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Basic Settings -->
+                                        <div class="row mb-3">
+                                            <div class="col-md-4">
+                                                <label for="whisperModelName" class="form-label">Model Size</label>
+                                                <select class="form-select" id="whisperModelName">
+                                                    <option value="tiny">Tiny (39MB, Fastest)</option>
+                                                    <option value="base" selected>Base (74MB, Balanced)</option>
+                                                    <option value="small">Small (244MB, Better)</option>
+                                                    <option value="medium">Medium (769MB, Good)</option>
+                                                    <option value="large">Large (1550MB, Very Good)</option>
+                                                    <option value="large-v2">Large v2 (1550MB, Better)</option>
+                                                    <option value="large-v3">Large v3 (1550MB, Best)</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label for="whisperLanguage" class="form-label">Language</label>
+                                                <select class="form-select" id="whisperLanguage">
+                                                    <option value="auto" selected>🌍 Auto-detect</option>
+                                                    <option value="en">🇺🇸 English</option>
+                                                    <option value="es">🇪🇸 Spanish</option>
+                                                    <option value="fr">🇫🇷 French</option>
+                                                    <option value="de">🇩🇪 German</option>
+                                                    <option value="it">🇮🇹 Italian</option>
+                                                    <option value="pt">🇵🇹 Portuguese</option>
+                                                    <option value="ru">🇷🇺 Russian</option>
+                                                    <option value="ja">🇯🇵 Japanese</option>
+                                                    <option value="ko">🇰🇷 Korean</option>
+                                                    <option value="zh">🇨🇳 Chinese</option>
+                                                    <option value="ar">🇸🇦 Arabic</option>
+                                                    <option value="hi">🇮🇳 Hindi</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label for="whisperTask" class="form-label">Task</label>
+                                                <select class="form-select" id="whisperTask">
+                                                    <option value="transcribe" selected>📝 Transcribe</option>
+                                                    <option value="translate">🌐 Translate to English</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <!-- Device Settings -->
+                                        <div class="row mb-3">
+                                            <div class="col-md-6">
+                                                <label for="whisperDevice" class="form-label">Device</label>
+                                                <select class="form-select" id="whisperDevice">
+                                                    <option value="cuda" selected>🚀 GPU (CUDA)</option>
+                                                    <option value="cpu">💻 CPU</option>
+                                    </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="whisperGpuIndex" class="form-label">GPU Index</label>
+                                                <input type="number" class="form-control" id="whisperGpuIndex" value="3" min="0" max="7">
+                                            </div>
+                                        </div>
+
+                                        <!-- Advanced Options -->
+                                        <div class="mb-3">
+                                            <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" 
+                                                    data-bs-target="#whisperAdvanced" aria-expanded="false">
+                                                <i class="fas fa-cog"></i> Advanced Options
+                                            </button>
+                                        </div>
+                                        
+                                        <div class="collapse" id="whisperAdvanced">
+                                            <div class="card card-body bg-light">
+                                                <div class="row mb-3">
+                                                    <div class="col-md-12">
+                                                        <label for="whisperInitialPrompt" class="form-label">Initial Prompt</label>
+                                                        <input type="text" class="form-control" id="whisperInitialPrompt" 
+                                                               placeholder="Context to guide transcription">
+                                                    </div>
+                                                </div>
+                                                <div class="row mb-3">
+                                                    <div class="col-md-6">
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" id="whisperConditionOnPreviousText" checked>
+                                                            <label class="form-check-label" for="whisperConditionOnPreviousText">
+                                                                Condition on previous text
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" id="whisperWordTimestamps">
+                                                            <label class="form-check-label" for="whisperWordTimestamps">
+                                                                Word-level timestamps
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Action Buttons -->
+                                <div class="d-flex gap-2 mt-4">
+                                    <button class="btn btn-primary btn-lg" id="transcribeBtn">
+                                        <i class="fas fa-play"></i> Start Transcription
+                                    </button>
+                                    <button class="btn btn-outline-info" id="loadModelsBtn">
+                                        <i class="fas fa-download"></i> Load Available Languages
+                                    </button>
+                                    <button class="btn btn-outline-secondary" id="clearResultsBtn">
+                                        <i class="fas fa-trash"></i> Clear Results
+                                </button>
+                                </div>
+
+                                <!-- Results -->
+                                <div id="transcriptionResult" class="mt-4"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="loading-overlay" style="display: none;">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+services:
+  genai-assistant:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: genai-assistant
+    ports:
+      - "${WEB_PORT:-5000}:${WEB_PORT:-5000}"
+    environment:
+      # Load from .env file
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES}
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - ADMIN_EMAIL=${ADMIN_EMAIL}
+      - ADMIN_FULL_NAME=${ADMIN_FULL_NAME}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN}
+      - HOST=${HOST}
+      - PORT=${PORT}
+      - WEB_PORT=${WEB_PORT:-${PORT:-5000}}
+      - DEBUG=${DEBUG}
+      - LOG_LEVEL=${LOG_LEVEL}
+      - CORS_ORIGINS=${CORS_ORIGINS}
+      - DEVICE_PREFERENCE=${DEVICE_PREFERENCE:-auto}
+    volumes:
+      # Persist uploads and generated files
+      - ./uploads:/app/uploads
+      - ./generated:/app/generated
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "sh", "-c", "curl -f http://localhost:$$WEB_PORT/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - genai-network
+    # Resource limits for production
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 2G
+    # GPU support (optional) - uncomment to enable GPU access in Docker
+    # Requires: nvidia-docker2 installed on host
+    # runtime: nvidia  # For older Docker versions
+    # For newer Docker Compose versions, use deploy.resources.reservations.devices instead:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all  # Or specify count: 1, count: 2, etc.
+    #           capabilities: [gpu]
+
+
+
+networks:
+  genai-network:
+    driver: bridge
+
+volumes:
+  uploads:
+  generated:
+  logs:
