@@ -81,18 +81,28 @@ class WhisperTranscriber:
 
         try:
             # Determine target device
+            import torch
+            
             if device == "cuda":
-                import torch
                 if torch.cuda.is_available():
                     # Use specified GPU index, default to 0
                     if gpu_index is not None and gpu_index < torch.cuda.device_count():
                         self.target_device = f"cuda:{gpu_index}"
-                        logger.info(f"Will use GPU {gpu_index} for OpenAI Whisper")
+                        logger.info(f"Will use CUDA GPU {gpu_index} for OpenAI Whisper")
                     else:
                         self.target_device = "cuda:0"
-                        logger.info(f"Will use default GPU (cuda:0) for OpenAI Whisper")
+                        logger.info(f"Will use default CUDA GPU (cuda:0) for OpenAI Whisper")
                 else:
                     logger.warning("CUDA not available, falling back to CPU")
+                    self.device = "cpu"
+                    self.target_device = "cpu"
+            elif device == "mps":
+                # macOS Metal Performance Shaders
+                if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+                    self.target_device = "mps"
+                    logger.info("Will use Apple Silicon GPU (MPS) for OpenAI Whisper")
+                else:
+                    logger.warning("MPS not available, falling back to CPU")
                     self.device = "cpu"
                     self.target_device = "cpu"
             else:
@@ -195,10 +205,10 @@ class FasterWhisperTranscriber:
                         # Validate GPU index
                         if gpu_index is not None and gpu_index < torch.cuda.device_count():
                             target_device = f"cuda:{gpu_index}"
-                            logger.info(f"Using GPU {gpu_index} for Faster-Whisper")
+                            logger.info(f"Using CUDA GPU {gpu_index} for Faster-Whisper")
                         else:
                             target_device = "cuda:0"
-                            logger.info(f"Using default GPU (cuda:0) for Faster-Whisper")
+                            logger.info(f"Using default CUDA GPU (cuda:0) for Faster-Whisper")
                     else:
                         logger.warning("CUDA requested but not available, falling back to CPU")
                         target_device = "cpu"
@@ -213,15 +223,42 @@ class FasterWhisperTranscriber:
                     self.device = "cpu"
                     if compute_type == "float16":
                         target_compute_type = "float32"
+            elif device == "mps":
+                # macOS Metal Performance Shaders
+                try:
+                    import torch
+                    if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+                        target_device = "mps"
+                        logger.info("Using Apple Silicon GPU (MPS) for Faster-Whisper")
+                        # Note: Faster-Whisper may not support MPS directly, may need CPU fallback
+                        # For now, we'll try MPS but Faster-Whisper will handle fallback if needed
+                    else:
+                        logger.warning("MPS requested but not available, falling back to CPU")
+                        target_device = "cpu"
+                        self.device = "cpu"
+                        if compute_type == "float16":
+                            target_compute_type = "float32"
+                except ImportError:
+                    logger.warning("PyTorch not available for MPS check, using CPU")
+                    target_device = "cpu"
+                    self.device = "cpu"
+                    if compute_type == "float16":
+                        target_compute_type = "float32"
             else:
                 # CPU mode - ensure compatible compute type
                 if compute_type == "float16":
                     target_compute_type = "float32"
                     logger.info("Adjusted compute_type to float32 for CPU")
 
-            # Faster-Whisper expects simple "cuda" or "cpu", will use CUDA_VISIBLE_DEVICES if set
-            # We'll use device_index parameter if Faster-Whisper supports it, otherwise just "cuda"
-            simple_device = "cuda" if target_device.startswith("cuda") else "cpu"
+            # Faster-Whisper expects simple "cuda", "mps", or "cpu"
+            # We'll use device_index parameter if Faster-Whisper supports it, otherwise just the device type
+            if target_device.startswith("cuda"):
+                simple_device = "cuda"  # Faster-Whisper uses "cuda" and device_index parameter
+            elif target_device == "mps":
+                simple_device = "cpu"  # Faster-Whisper doesn't support MPS directly, fallback to CPU
+                logger.info("Faster-Whisper doesn't support MPS directly, using CPU instead")
+            else:
+                simple_device = "cpu"
 
             self.model = WhisperModel(
                 model_name,

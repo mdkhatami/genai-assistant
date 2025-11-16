@@ -22,6 +22,7 @@ requests
 pillow
 numpy
 tqdm
+psutil
 
 # Web interface dependencies
 flask

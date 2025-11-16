@@ -131,9 +131,22 @@ class OptimizedImageGenerator:
             self.device = "cpu"
             self.gpu_index = None
 
+        # Check MPS availability (macOS)
+        if self.device == "mps":
+            if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+                self.target_device = "mps"
+                logger.info("🎯 Using device: Apple Silicon GPU (MPS)")
+            else:
+                logger.warning("⚠️  MPS not available, falling back to CPU")
+                self.device = "cpu"
+                self.gpu_index = None
+                self.target_device = "cpu"
+                logger.info("🎯 Using device: CPU")
+                return
+
         if self.device == "cuda":
             available_gpus = torch.cuda.device_count()
-            logger.info(f"🔍 Available GPUs: {available_gpus}")
+            logger.info(f"🔍 Available CUDA GPUs: {available_gpus}")
 
             # Use specified GPU index if valid, otherwise use first available
             if self.gpu_index is not None:
@@ -141,30 +154,42 @@ class OptimizedImageGenerator:
                     self.target_device = f"cuda:{self.gpu_index}"
                     torch.cuda.set_device(self.gpu_index)
                     gpu_name = torch.cuda.get_device_name(self.gpu_index)
-                    logger.info(f"🎯 Using GPU {self.gpu_index}: {gpu_name}")
+                    logger.info(f"🎯 Using CUDA GPU {self.gpu_index}: {gpu_name}")
                 else:
-                    logger.warning(f"⚠️  GPU {self.gpu_index} not available (only {available_gpus} GPUs), using cuda:0")
+                    logger.warning(f"⚠️  CUDA GPU {self.gpu_index} not available (only {available_gpus} GPUs), using cuda:0")
                     self.target_device = "cuda:0"
                     self.gpu_index = 0
                     torch.cuda.set_device(0)
                     gpu_name = torch.cuda.get_device_name(0)
-                    logger.info(f"🎯 Using GPU 0: {gpu_name}")
+                    logger.info(f"🎯 Using CUDA GPU 0: {gpu_name}")
             else:
                 # No specific GPU requested, use first available
                 self.target_device = "cuda:0"
                 self.gpu_index = 0
                 torch.cuda.set_device(0)
                 gpu_name = torch.cuda.get_device_name(0)
-                logger.info(f"🎯 Using GPU 0: {gpu_name}")
-        else:
+                logger.info(f"🎯 Using CUDA GPU 0: {gpu_name}")
+        elif self.device == "cpu":
             # CPU mode
+            self.target_device = "cpu"
+            logger.info(f"🎯 Using device: CPU")
+        elif self.device == "mps":
+            # MPS already handled above
+            pass
+        else:
+            # Unknown device type, fallback to CPU
+            logger.warning(f"⚠️  Unknown device type '{self.device}', falling back to CPU")
+            self.device = "cpu"
             self.target_device = "cpu"
             logger.info(f"🎯 Using device: CPU")
 
         # Clear GPU memory before starting
         if self.device == "cuda":
             torch.cuda.empty_cache()
-            logger.info("🧹 Cleared GPU memory cache")
+            logger.info("🧹 Cleared CUDA memory cache")
+        elif self.device == "mps" and hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+            torch.mps.empty_cache()
+            logger.info("🧹 Cleared MPS memory cache")
     
     def _load_model(self):
         """Load the FLUX.1-dev model with optimal settings."""

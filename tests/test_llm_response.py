@@ -4,6 +4,10 @@ Test suite for LLM Response Core functionality.
 This module tests both OpenAI and Ollama LLM integrations with comprehensive
 coverage of all features including error handling, parameter validation, and
 response formatting.
+
+Note: These are unit tests using mocks. For integration tests that use actual
+API calls, see test_integration.py. To run only integration tests:
+    python -m pytest tests/test_integration.py -v
 """
 
 import os

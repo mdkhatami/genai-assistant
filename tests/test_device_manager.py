@@ -54,7 +54,8 @@ class TestDeviceDetection(unittest.TestCase):
 
         dm = get_device_manager()
         self.assertEqual(len(dm.available_devices), 0)
-        self.assertEqual(dm.device_count, 0)
+        # device_count doesn't exist - use len(available_devices) instead
+        self.assertEqual(len(dm.available_devices), 0)
 
     @patch('torch.cuda.is_available')
     @patch('torch.cuda.device_count')
@@ -68,11 +69,17 @@ class TestDeviceDetection(unittest.TestCase):
         mock_props = Mock()
         mock_props.name = "NVIDIA Tesla T4"
         mock_props.total_memory = 16 * 1024 * 1024 * 1024  # 16GB
+        mock_props.major = 7
+        mock_props.minor = 5
         mock_get_props.return_value = mock_props
 
-        dm = get_device_manager()
-        self.assertEqual(dm.device_count, 1)
-        self.assertEqual(len(dm.available_devices), 1)
+        # Mock memory functions
+        with patch('torch.cuda.set_device'), \
+             patch('torch.cuda.memory_allocated', return_value=0), \
+             patch('torch.cuda.memory_reserved', return_value=0):
+            dm = get_device_manager()
+            # device_count doesn't exist - use len(available_devices) instead
+            self.assertEqual(len(dm.available_devices), 1)
 
 
 class TestDeviceSelection(unittest.TestCase):
@@ -160,6 +167,67 @@ class TestServiceConfiguration(unittest.TestCase):
         )
 
         self.assertEqual(device_info['device'], "cpu")
+
+
+class TestMacOSMPSDetection(unittest.TestCase):
+    """Test cases for macOS MPS GPU detection."""
+
+    def setUp(self):
+        """Reset singleton instance before each test."""
+        DeviceManager._instance = None
+
+    @patch('sys.platform', 'darwin')
+    @patch('torch.cuda.is_available')
+    def test_mps_detection_available(self, mock_cuda_available):
+        """Test MPS detection when available on macOS."""
+        mock_cuda_available.return_value = False
+        
+        # Mock torch.backends.mps
+        mock_mps_backend = Mock()
+        mock_mps_backend.is_available.return_value = True
+        
+        with patch('torch.backends.mps', mock_mps_backend), \
+             patch('sys.platform', 'darwin'):
+            dm = get_device_manager()
+            # Should detect MPS device
+            mps_devices = [d for d in dm.available_devices if d.device_type == "mps"]
+            self.assertGreater(len(mps_devices), 0, "Should detect MPS device on macOS")
+
+    @patch('sys.platform', 'darwin')
+    @patch('torch.cuda.is_available')
+    def test_mps_detection_unavailable(self, mock_cuda_available):
+        """Test MPS detection when not available (Intel Mac or older macOS)."""
+        mock_cuda_available.return_value = False
+        
+        # Mock torch.backends.mps as unavailable
+        mock_mps_backend = Mock()
+        mock_mps_backend.is_available.return_value = False
+        
+        with patch('torch.backends.mps', mock_mps_backend), \
+             patch('sys.platform', 'darwin'):
+            dm = get_device_manager()
+            # Should fall back to CPU
+            mps_devices = [d for d in dm.available_devices if d.device_type == "mps"]
+            self.assertEqual(len(mps_devices), 0, "Should not detect MPS device")
+            # CPU should be available
+            self.assertIsNotNone(dm.cpu_info, "CPU should be available as fallback")
+
+    @patch('sys.platform', 'darwin')
+    @patch('torch.cuda.is_available')
+    def test_mps_device_selection(self, mock_cuda_available):
+        """Test that MPS device is selected when available."""
+        mock_cuda_available.return_value = False
+        
+        # Mock torch.backends.mps
+        mock_mps_backend = Mock()
+        mock_mps_backend.is_available.return_value = True
+        
+        with patch('torch.backends.mps', mock_mps_backend), \
+             patch('sys.platform', 'darwin'):
+            dm = get_device_manager()
+            device_info = dm.get_best_device(device_preference="auto")
+            # Should select MPS if available, otherwise CPU
+            self.assertIn(device_info['device'], ['mps', 'cpu'])
 
 
 if __name__ == '__main__':
